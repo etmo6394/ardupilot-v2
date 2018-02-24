@@ -78,6 +78,16 @@
 #define AP_SERIALMANAGER_SBUS1_BUFSIZE_RX     16
 #define AP_SERIALMANAGER_SBUS1_BUFSIZE_TX     32
 
+// DMU11 baud rate and buffer sizes
+#define AP_SERIALMANAGER_DMU11_BAUD           115
+#define AP_SERIALMANAGER_DMU11_BUFSIZE_RX     40        // DMU11 sends 19 words of data at 200Hz
+#define AP_SERIALMANAGER_DMU11_BUFSIZE_TX     0         // No need to send data to DMU11
+
+// MicroZed baud rate and buffer sizes
+#define AP_SERIALMANAGER_UZED_BAUD          57600   // Same as MAVLink
+#define AP_SERIALMANAGER_UZED_BUFSIZE_RX    1       // one byte "flag"
+#define AP_SERIALMANAGER_UZED_BUFSIZE_TX    256     // same as MAVLink
+
 
 class AP_SerialManager {
 public:
@@ -104,7 +114,9 @@ public:
         SerialProtocol_Aerotenna_uLanding      = 12, // Ulanding support
         SerialProtocol_Beacon = 13,
         SerialProtocol_Volz = 14,                    // Volz servo protocol
-        SerialProtocol_Sbus1 = 15
+        SerialProtocol_Sbus1 = 15,
+        SerialProtocol_DMU11 = 16,                    // DMU11 External IMU protocol
+        SerialProtocol_uZed = 17                      // MicroZed Protocol
     };
 
     // get singleton instance

@@ -73,14 +73,14 @@ const AP_Param::GroupInfo AP_SerialManager::var_info[] = {
     // @Values: -1:None, 1:MAVLink1, 2:MAVLink2, 3:Frsky D, 4:Frsky SPort, 5:GPS, 7:Alexmos Gimbal Serial, 8:SToRM32 Gimbal Serial, 9:Lidar, 10:FrSky SPort Passthrough (OpenTX), 11:Lidar360, 12:Aerotenna uLanding, 13:Beacon, 14:Volz servo out, 15:SBus servo out
     // @User: Standard
     // @RebootRequired: True
-    AP_GROUPINFO("2_PROTOCOL",  3, AP_SerialManager, state[2].protocol, SerialProtocol_MAVLink),
+    AP_GROUPINFO("2_PROTOCOL",  3, AP_SerialManager, state[2].protocol, SerialProtocol_uZed),
 
     // @Param: 2_BAUD
     // @DisplayName: Telemetry 2 Baud Rate
     // @Description: The baud rate of the Telem2 port. The APM2 can support all baudrates up to 115, and also can support 500. The PX4 can support rates of up to 1500. If you setup a rate you cannot support on APM2 and then can't connect to your board you should load a firmware from a different vehicle type. That will reset all your parameters to defaults.
     // @Values: 1:1200,2:2400,4:4800,9:9600,19:19200,38:38400,57:57600,111:111100,115:115200,500:500000,921:921600,1500:1500000
     // @User: Standard
-    AP_GROUPINFO("2_BAUD", 4, AP_SerialManager, state[2].baud, AP_SERIALMANAGER_MAVLINK_BAUD/1000),
+    AP_GROUPINFO("2_BAUD", 4, AP_SerialManager, state[2].baud, AP_SERIALMANAGER_UZED_BAUD/1000),
 
     // @Param: 3_PROTOCOL
     // @DisplayName: Serial 3 (GPS) protocol selection
@@ -103,14 +103,14 @@ const AP_Param::GroupInfo AP_SerialManager::var_info[] = {
     // @Values: -1:None, 1:MAVLink1, 2:MAVLink2, 3:Frsky D, 4:Frsky SPort, 5:GPS, 7:Alexmos Gimbal Serial, 8:SToRM32 Gimbal Serial, 9:Lidar, 10:FrSky SPort Passthrough (OpenTX), 11:Lidar360, 12:Aerotenna uLanding, 13:Beacon, 14:Volz servo out, 15:SBus servo out
     // @User: Standard
     // @RebootRequired: True
-    AP_GROUPINFO("4_PROTOCOL",  7, AP_SerialManager, state[4].protocol, SerialProtocol_GPS),
+    AP_GROUPINFO("4_PROTOCOL",  7, AP_SerialManager, state[4].protocol, SerialProtocol_DMU11),
 
     // @Param: 4_BAUD
     // @DisplayName: Serial 4 Baud Rate
     // @Description: The baud rate used for Serial4. The APM2 can support all baudrates up to 115, and also can support 500. The PX4 can support rates of up to 1500. If you setup a rate you cannot support on APM2 and then can't connect to your board you should load a firmware from a different vehicle type. That will reset all your parameters to defaults.
-    // @Values: 1:1200,2:2400,4:4800,9:9600,19:19200,38:38400,57:57600,111:111100,115:115200,500:500000,921:921600,1500:1500000
+    // @Values: 1:1200,2:2400,4:4800,9:9600,19:19200,38:38400,57:57600,111:111100,115:115200,500:500000,921:921600,1500:1500000 (115200 baud rate defined in AP_SerialManager.h)
     // @User: Standard
-    AP_GROUPINFO("4_BAUD", 8, AP_SerialManager, state[4].baud, AP_SERIALMANAGER_GPS_BAUD/1000),
+    AP_GROUPINFO("4_BAUD", 8, AP_SerialManager, state[4].baud, AP_SERIALMANAGER_DMU11_BAUD),
 
     // @Param: 5_PROTOCOL
     // @DisplayName: Serial5 protocol selection
@@ -247,6 +247,23 @@ void AP_SerialManager::init()
                     state[i].uart->set_unbuffered_writes(true);
                     state[i].uart->set_flow_control(AP_HAL::UARTDriver::FLOW_CONTROL_DISABLE);
                     break;
+                case SerialProtocol_DMU11:
+                    state[i].baud = AP_SERIALMANAGER_DMU11_BAUD;
+                    state[i].uart->begin(map_baudrate(state[i].baud),
+                                         AP_SERIALMANAGER_DMU11_BUFSIZE_RX,
+                                         AP_SERIALMANAGER_DMU11_BUFSIZE_TX);
+                    state[i].uart->set_stop_bits(2);
+                    hal.console->printf("\nuartE at %d baud\n",(int32_t)state[i].baud);
+                    hal.console->printf("uartE protocol: %d\n",(int8_t)state[i].protocol);
+                    hal.console->printf("expected uart state 4: %p\n", hal.uartE);
+                    hal.console->printf("actual uart state 4: %p\n\n", state[4].uart);
+                    break;
+                case SerialProtocol_uZed:
+                    state[i].baud = AP_SERIALMANAGER_UZED_BAUD/1000;
+                    state[i].uart->begin(map_baudrate(state[i].baud),
+                                         AP_SERIALMANAGER_UZED_BUFSIZE_RX,
+                                         AP_SERIALMANAGER_UZED_BUFSIZE_TX);
+                    break;
             }
         }
     }
@@ -263,6 +280,13 @@ AP_HAL::UARTDriver *AP_SerialManager::find_serial(enum SerialProtocol protocol, 
     for(uint8_t i=0; i<SERIALMANAGER_NUM_PORTS; i++) {
         if (protocol_match(protocol, (enum SerialProtocol)state[i].protocol.get())) {
             if (found_instance == instance) {
+                hal.console->printf("instances: %s\n", (found_instance==instance) ? "true":"false" );
+                hal.console->printf("uart: %p\n", state[i].uart);
+                hal.console->printf("expected uart: %p\n", hal.uartE);
+                hal.console->printf("current i: %d\n", i);
+                hal.console->printf("verify baud: %d\n", (int32_t)state[i].baud);
+                hal.console->printf("verify protocol: %d\n", (int8_t)state[i].protocol);
+
                 return state[i].uart;
             }
             found_instance++;

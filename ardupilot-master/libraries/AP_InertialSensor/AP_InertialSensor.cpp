@@ -24,6 +24,7 @@
 #include "AP_InertialSensor_qflight.h"
 #include "AP_InertialSensor_RST.h"
 #include "AP_InertialSensor_Revo.h"
+#include "AP_InertialSensor_DMU11.h"
 
 /* Define INS_TIMING_DEBUG to track down scheduling issues with the main loop.
  * Output is on the debug console. */
@@ -532,6 +533,13 @@ uint8_t AP_InertialSensor::register_gyro(uint16_t raw_sample_rate_hz,
         AP_HAL::panic("Too many gyros");
     }
 
+    // If sensor is DMU11
+    if (id == 0) {
+      _gyro_raw_sample_rates[_gyro_count] = 0;
+      _gyro_over_sampling[_gyro_count] = 0;
+      return _gyro_count++;
+    }
+
     _gyro_raw_sample_rates[_gyro_count] = raw_sample_rate_hz;
     _gyro_over_sampling[_gyro_count] = 1;
 
@@ -563,6 +571,13 @@ uint8_t AP_InertialSensor::register_accel(uint16_t raw_sample_rate_hz,
 {
     if (_accel_count == INS_MAX_INSTANCES) {
         AP_HAL::panic("Too many accels");
+    }
+
+    // If sensor is DMU11
+    if (id == 0) {
+      _accel_raw_sample_rates[_accel_count] = 0;
+      _accel_over_sampling[_accel_count] = 0;
+      return _accel_count++;
     }
 
     _accel_raw_sample_rates[_accel_count] = raw_sample_rate_hz;
@@ -728,9 +743,15 @@ AP_InertialSensor::detect_backends(void)
         return;
     }
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
+    hal.console->printf("INS in SITL Mode\n");
     ADD_BACKEND(AP_InertialSensor_SITL::detect(*this));
+    hal.console->printf("Attempting to detect dmu11\n");
+    ADD_BACKEND(AP_InertialSensor_DMU11::probe(*this));
+    hal.console->printf("INS in HIL Mode\n");
 #elif HAL_INS_DEFAULT == HAL_INS_HIL
     ADD_BACKEND(AP_InertialSensor_HIL::detect(*this));
+    hal.console->printf("Attempting to detect dmu11\n");
+       ADD_BACKEND(AP_InertialSensor_DMU11::probe(*this));
 #elif CONFIG_HAL_BOARD == HAL_BOARD_F4LIGHT
     ADD_BACKEND(AP_InertialSensor_Revo::probe(*this, hal.spi->get_device(HAL_INS_MPU60x0_NAME), HAL_INS_DEFAULT_ROTATION));
 #elif HAL_INS_DEFAULT == HAL_INS_MPU60XX_SPI && defined(HAL_INS_DEFAULT_ROTATION)
@@ -763,9 +784,14 @@ AP_InertialSensor::detect_backends(void)
         break;
 
     case AP_BoardConfig::PX4_BOARD_PIXHAWK2:
+        hal.console->printf("PixHawk2 backend detected\n");
         // older Pixhawk2 boards have the MPU6000 instead of MPU9250
         _fast_sampling_mask.set_default(1);
+        hal.console->printf("Attempting to detect dmu11\n");
+        ADD_BACKEND(AP_InertialSensor_DMU11::probe(*this));
+        hal.console->printf("Attempting to detect Invensense\n");
         ADD_BACKEND(AP_InertialSensor_Invensense::probe(*this, hal.spi->get_device(HAL_INS_MPU9250_EXT_NAME), ROTATION_PITCH_180));
+        hal.console->printf("Attempting to detect LSM9DS0\n");
         ADD_BACKEND(AP_InertialSensor_LSM9DS0::probe(*this,
                                                       hal.spi->get_device(HAL_INS_LSM9DS0_EXT_G_NAME),
                                                       hal.spi->get_device(HAL_INS_LSM9DS0_EXT_A_NAME),
